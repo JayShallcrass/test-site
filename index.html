@@ -20,6 +20,70 @@ document.cookie = "testCookieID=12345";
     _ictt.push(['_setAutoDiscoveryClasses', ['store-details__telephone','InfinityNumber','b-store__phone','call-to-action','number']]);
     _ictt.push(['_enableAutoDiscovery']);
     _ictt.push(['_includeExternal', [{'fromCookie':'testCookieID','to':'_setCustomVar'}]]);
+	
+	
+	
+	
+// anything with a tel: url
+// - with no children
+_ictt.push(['_addNumberElements', $('a[href^="tel:"]').filter(function() {
+  return this.children.length === 0;
+}).get()]);
+// - or with a nested span which contains the number
+_ictt.push(['_addNumberElements', $('a[href^="tel:"] span').get()]);
+
+// for tel: urls, only replace the href, the above will replace the contents
+$('a[href^="tel:"]').each(function() {
+  var discoveryNumber = $(this).attr('href').replace('tel:', '');
+  $(this).attr('data-ict-discovery-number', discoveryNumber);
+  _ictt.push(['_addNumberElements', [this], { silentReplacements: true, discoveryNumber: discoveryNumber }]);
+});
+
+var numberReplaceElements = [];
+var textNodes = [];
+
+// handle these elements separately based on whether they have child elements
+$('*:not(a[href^="tel:"])').each(function() {
+  if (this.children.length === 0 && /^[\d\s+]+$/.test(this.textContent)) {
+    numberReplaceElements.push(this);
+  } else {
+    $.each($(this).contents(), function () {
+      // use integer value instead of Node.TEXT_NODE for better IE support
+      if (this.nodeType === 3 && /\s*(?:\d+|\+(?:\d+|\s+)+)\s*$/.test(this.textContent)) {
+        textNodes.push(this);
+
+        var discoveryNumber = this.textContent.replace(/\s/g,'');
+        _ictt.push(['_addToDestMap', { type: 'number',  identifier: discoveryNumber }]);
+      }
+    });
+  }
+});
+
+_ictt.push(['_addNumberElements', numberReplaceElements]);
+
+_ictt.push(['_addCallback', function() {
+  var allocated = _ictt.push(['_getAllocatedNumbers']);
+  
+  $.each(textNodes, function(key, element) {
+    var discoveryNumber = this.textContent.replace(/\s/g,'');
+    if (allocated.hasOwnProperty(discoveryNumber)) {
+      var content = '';
+      // preserve leading whitespace
+      if (this.textContent.indexOf(' ') === 0) {
+        content = ' ';
+      }
+
+      this.textContent = content + allocated[discoveryNumber];
+    }
+  });
+}, {eventName: 'afterNumberReplace'}]);
+
+	
+	
+	
+	
+	
+	
     _ictt.push(['_track']);
 (function() {
     var ict = document.createElement('script'); ict.type = 'text/javascript'; ict.async = true;
